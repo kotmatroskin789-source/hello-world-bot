@@ -1,49 +1,49 @@
 import streamlit as st
 import io
+import os
+import urllib.request
+from PIL import Image
+
+# 1. Принудительная загрузка модели, если её нет
+def download_model():
+    model_path = os.path.expanduser("~/.u2net/u2net.onnx")
+    if not os.path.exists(model_path):
+        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+        url = "https://github.com"
+        with st.spinner("Загрузка ИИ-модели (170МБ)... Пожалуйста, подождите."):
+            urllib.request.urlretrieve(url, model_path)
+            st.success("Модель успешно загружена!")
 
 st.set_page_config(page_title="Удаление фона", page_icon="✂️")
-
-st.write("# Hello World!")
 st.title("✂️ ИИ-помощник")
-st.info("Я готов к работе!")
 
 uploaded_file = st.file_uploader("Добавить изображение", type=["jpg", "jpeg", "png"])
 
 if uploaded_file:
-    from PIL import Image
     image = Image.open(uploaded_file)
-    # Исправили параметр согласно логам: width="stretch"
     st.image(image, caption="Оригинал загружен", width="stretch")
 
     if st.button("Очистить фон 🏁"):
-        # Создаем пустой элемент для статуса
-        status_text = st.empty()
-        status_text.info("⏳ Инициализация ИИ... (при первом запуске это займет до 1 минуты)")
-        
         try:
+            # Сначала проверяем/скачиваем модель
+            download_model()
+            
             from rembg import remove
             
-            # Сама обработка
-            output = remove(image)
-            
-            # Делаем фон белым
-            white_bg = Image.new("RGB", output.size, (255, 255, 255))
-            if output.mode == 'RGBA':
-                white_bg.paste(output, mask=output.split())
-            else:
-                white_bg.paste(output)
-            
-            status_text.success("✅ Готово!")
-            st.image(white_bg, caption="Результат", width="stretch")
-            
-            # Кнопка скачивания
-            buf = io.BytesIO()
-            white_bg.save(buf, format="JPEG")
-            st.download_button(
-                label="📥 Скачать результат",
-                data=buf.getvalue(),
-                file_name="result_white.jpg",
-                mime="image/jpeg"
-            )
+            with st.spinner("Удаление фона..."):
+                output = remove(image)
+                
+                # Создание белого фона
+                white_bg = Image.new("RGB", output.size, (255, 255, 255))
+                if output.mode == 'RGBA':
+                    white_bg.paste(output, mask=output.split())
+                else:
+                    white_bg.paste(output)
+                
+                st.image(white_bg, caption="Результат на белом фоне", width="stretch")
+                
+                buf = io.BytesIO()
+                white_bg.save(buf, format="JPEG")
+                st.download_button("📥 Скачать результат", buf.getvalue(), "result.jpg", "image/jpeg")
         except Exception as e:
             st.error(f"Произошла ошибка: {e}")
