@@ -1,54 +1,59 @@
 import streamlit as st
-from rembg import remove
-from PIL import Image
-import io
 
-# 1. Настройка страницы
-st.set_page_config(page_title="ИИ Удаление фона", page_icon="🤖")
+# Сразу рисуем интерфейс, чтобы не было белого экрана
+st.title("🤖 Мой ИИ Бот")
+st.write("### Состояние: Запуск системы...")
+st.write("Hello World! Если вы видите этот текст — интерфейс работает ✅")
 
-# 2. Приветствие (показывается всегда)
-st.write("# Hello World!")
-
-# 3. Заголовок и описание
-st.title("✂️ ИИ-помощник для удаления фона")
-st.info("Я готов к работе! Загрузите фото, чтобы заменить фон на белый.")
-
-# 4. Кнопка загрузки изображения
-uploaded_file = st.file_uploader("Добавить изображение", type=["jpg", "jpeg", "png"])
-
-# 5. Основная логика работы
-if uploaded_file:
-    # Отображаем загруженное фото
-    image = Image.open(uploaded_file)
-    st.image(image, caption='Ваш оригинал', use_container_width=True)
+# Тяжёлые библиотеки загружаем только при обработке (экономим время запуска)
+def remove_background(image_file):
+    from rembg import remove
+    from PIL import Image
     
-    # Кнопка запуска обработки
-    if st.button('Очистить фон 🏁'):
-        with st.spinner('Магия ИИ в процессе... 🏁'):
-            # Удаление фона
-            no_bg = remove(image)
-            
-            # Создание белого фона
-            white_bg = Image.new("RGB", no_bg.size, (255, 255, 255))
-            
-            if no_bg.mode == 'RGBA':
-                white_bg.paste(no_bg, mask=no_bg.split())
-            else:
-                white_bg.paste(no_bg)
-            
-            # Результат
-            st.success("Готово! Фон заменен на белый 🏁")
-            st.image(white_bg, caption='Результат', use_container_width=True)
-            
-            # Кнопка скачивания
-            buf = io.BytesIO()
-            white_bg.save(buf, format="JPEG")
-            st.download_button(
-                label="📥 Скачать готовое изображение",
-                data=buf.getvalue(),
-                file_name="white_bg_result.jpg",
-                mime="image/jpeg"
-            )
-else:
-    # Инструкция, если фото еще не выбрано
-    st.warning("👈 Нажмите кнопку выше, чтобы добавить изображение.")
+    # Открываем изображение
+    img = Image.open(image_file)
+    
+    # Удаляем фон (rembg всегда возвращает RGBA)
+    result = remove(img)
+    
+    # Делаем белый фон (самый надёжный способ)
+    white_bg = Image.new("RGB", result.size, (255, 255, 255))
+    white_bg.paste(result, (0, 0), result)  # ← вот здесь была ошибка
+    
+    return white_bg
+
+
+# ====================== ИНТЕРФЕЙС ======================
+uploaded_file = st.file_uploader(
+    "📸 Добавить изображение",
+    type=["jpg", "jpeg", "png"],
+    help="Поддерживаются JPG, JPEG и PNG"
+)
+
+if uploaded_file:
+    st.image(uploaded_file, caption="📌 Оригинал загружен", use_column_width=True)
+    
+    if st.button("🪄 Удалить фон", type="primary", use_container_width=True):
+        with st.spinner("🧪 Магия ИИ в процессе... (это может занять 3–8 секунд)"):
+            try:
+                result_image = remove_background(uploaded_file)
+                
+                st.success("✅ Фон успешно удалён!")
+                st.image(result_image, caption="🎉 Результат готов!", use_column_width=True)
+                
+                # Кнопка скачивания
+                import io
+                buf = io.BytesIO()
+                result_image.save(buf, format="JPEG", quality=95)
+                
+                st.download_button(
+                    label="⬇️ Скачать результат (JPG)",
+                    data=buf.getvalue(),
+                    file_name="result_no_background.jpg",
+                    mime="image/jpeg",
+                    use_container_width=True
+                )
+                
+            except Exception as e:
+                st.error(f"❌ Ошибка: {e}")
+                st.info("Подсказка: Убедитесь, что библиотека `rembg` установлена (`pip install rembg`).")
