@@ -1,61 +1,50 @@
 import streamlit as st
-from rembg import new_session
-from PIL import Image
-import io
+import os
+import psutil
+import platform
+import sys
 
-# Настраиваем страницу
-st.set_page_config(page_title="Мой ИИ Бот", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="System Diagnosis")
 
-st.title("🤖 Мой ИИ Бот")
-st.write("### Удаление фона с помощью ИИ")
+st.title("🖥 Диагностика системы")
 
-# Кэшируем модель rembg один раз на всё время работы приложения
-@st.cache_resource
-def get_rembg_session():
-    with st.spinner("⏳ Загружаем модель ИИ (первый раз может занять 15–30 сек)..."):
-        return new_session()  # можно new_session("u2net_human_seg") для ещё легче
+# 1. Базовая проверка интерфейса
+st.success("✅ Если вы видите этот текст, значит Streamlit работает и отрисовывает интерфейс!")
 
-def remove_background(uploaded_file):
-    session = get_rembg_session()
-    
-    img = Image.open(uploaded_file)
-    result = remove(img, session=session)  # ← теперь используем кэшированную модель
-    
-    # Белый фон
-    white_bg = Image.new("RGB", result.size, (255, 255, 255))
-    white_bg.paste(result, (0, 0), result)
-    return white_bg
+# 2. Информация о системе
+st.header("1. Информация о сервере")
+col1, col2 = st.columns(2)
+with col1:
+    st.write(f"**ОС:** {platform.system()} {platform.release()}")
+    st.write(f"**Python:** {sys.version.split()[0]}")
+with col2:
+    mem = psutil.virtual_memory()
+    st.write(f"**Доступно RAM:** {mem.available / (1024**3):.2f} GB")
+    st.write(f"**Всего RAM:** {mem.total / (1024**3):.2f} GB")
 
-# ====================== ИНТЕРФЕЙС ======================
-uploaded_file = st.file_uploader("📸 Загрузите изображение", 
-                                 type=["jpg", "jpeg", "png"], 
-                                 help="JPG, JPEG, PNG")
+# 3. Тест дисковой подсистемы (нужно для загрузки модели ИИ)
+st.header("2. Проверка прав записи")
+try:
+    test_file = "test_write.txt"
+    with open(test_file, "w") as f:
+        f.write("test")
+    os.remove(test_file)
+    st.success("✅ Права на запись есть (модель ИИ сможет скачаться).")
+except Exception as e:
+    st.error(f"❌ Нет прав на запись: {e}")
 
-if uploaded_file:
-    col1, col2 = st.columns(2)
-    with col1:
-        st.image(uploaded_file, caption="📌 Оригинал", use_column_width=True)
-    
-    if st.button("🪄 Удалить фон", type="primary", use_container_width=True):
-        with st.spinner("🧪 ИИ удаляет фон... (обычно 3–8 секунд после первой загрузки модели)"):
-            try:
-                result_image = remove_background(uploaded_file)
-                
-                with col2:
-                    st.success("✅ Готово!")
-                    st.image(result_image, caption="🎉 Результат", use_column_width=True)
-                
-                # Скачивание
-                buf = io.BytesIO()
-                result_image.save(buf, format="JPEG", quality=95)
-                st.download_button(
-                    label="⬇️ Скачать результат (JPG)",
-                    data=buf.getvalue(),
-                    file_name="result_no_background.jpg",
-                    mime="image/jpeg",
-                    use_container_width=True
-                )
-            except Exception as e:
-                st.error(f"❌ Ошибка: {e}")
+# 4. Попытка импорта тяжелой библиотеки
+st.header("3. Тест импорта ИИ (rembg)")
+if st.button("Запустить импорт rembg"):
+    with st.spinner("Пробую импортировать библиотеку..."):
+        try:
+            import rembg
+            st.success(f"✅ Библиотека rembg успешно импортирована! Версия: {rembg.__version__}")
+            st.info("Это значит, ресурсов памяти (RAM) хватает для запуска.")
+        except Exception as e:
+            st.error(f"❌ Ошибка при импорте rembg: {e}")
+            st.warning("Скорее всего, серверу не хватает оперативной памяти (OOM).")
 
-st.caption("💡 Первый запуск приложения может быть долгим — модель скачивается один раз.")
+# 5. Вывод логов памяти
+st.header("4. Текущие процессы")
+st.write(f"Занято памяти процессом: {psutil.Process(os.getpid()).memory_info().rss / (1024**2):.2f} MB")
