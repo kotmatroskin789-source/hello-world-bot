@@ -3,38 +3,52 @@ from rembg import remove
 from PIL import Image
 import io
 
-st.set_page_config(page_title="Удаление фона ИИ")
-st.title("✂️ Удаление фона и замена на белый")
+# 1. Настройка страницы
+st.set_page_config(page_title="ИИ Удаление фона", page_icon="🤖")
 
-uploaded_file = st.file_uploader("Загрузите фото (JPG, PNG)", type=["jpg", "jpeg", "png"])
+# 2. Приветствие (показывается всегда)
+st.write("# Hello World!")
 
+# 3. Заголовок и описание
+st.title("✂️ ИИ-помощник для удаления фона")
+st.info("Я готов к работе! Загрузите фото, чтобы заменить фон на белый.")
+
+# 4. Кнопка загрузки изображения
+uploaded_file = st.file_uploader("Добавить изображение", type=["jpg", "jpeg", "png"])
+
+# 5. Основная логика работы
 if uploaded_file:
-    # Открываем изображение
+    # Отображаем загруженное фото
     image = Image.open(uploaded_file)
-    st.image(image, caption='Оригинал', use_container_width=True)
+    st.image(image, caption='Ваш оригинал', use_container_width=True)
     
-    if st.button('Очистить фон'):
-        with st.spinner('Магия ИИ в процессе...'):
-            # 1. Удаляем фон (делаем его прозрачным)
+    # Кнопка запуска обработки
+    if st.button('Очистить фон 🏁'):
+        with st.spinner('Магия ИИ в процессе... 🏁'):
+            # Удаление фона
             no_bg = remove(image)
             
-            # 2. Создаем белый фон и накладываем объект
-            # Если картинка в режиме RGBA, конвертируем
+            # Создание белого фона
+            white_bg = Image.new("RGB", no_bg.size, (255, 255, 255))
+            
             if no_bg.mode == 'RGBA':
-                white_bg = Image.new("RGB", no_bg.size, (255, 255, 255))
-                white_bg.paste(no_bg, mask=no_bg.split()[3]) # 3 — это альфа-канал
+                white_bg.paste(no_bg, mask=no_bg.split())
             else:
-                white_bg = no_bg.convert("RGB")
+                white_bg.paste(no_bg)
             
-            # Показываем результат
-            st.image(white_bg, caption='Результат на белом фоне', use_container_width=True)
+            # Результат
+            st.success("Готово! Фон заменен на белый 🏁")
+            st.image(white_bg, caption='Результат', use_container_width=True)
             
-            # Подготовка файла для скачивания
+            # Кнопка скачивания
             buf = io.BytesIO()
             white_bg.save(buf, format="JPEG")
             st.download_button(
-                label="Скачать результат",
+                label="📥 Скачать готовое изображение",
                 data=buf.getvalue(),
-                file_name="result_white_bg.jpg",
+                file_name="white_bg_result.jpg",
                 mime="image/jpeg"
             )
+else:
+    # Инструкция, если фото еще не выбрано
+    st.warning("👈 Нажмите кнопку выше, чтобы добавить изображение.")
