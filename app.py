@@ -1,27 +1,49 @@
 import streamlit as st
-import sys
+import io
 
-st.title("🛠 Финальная отладка импорта")
+# Сначала настраиваем страницу
+st.set_page_config(page_title="Удаление фона", page_icon="✂️")
 
-# Пытаемся импортировать по очереди, чтобы найти слабое звено
-st.write("Начинаю загрузку модулей...")
+# Выводим приветствие сразу
+st.write("# Hello World!")
+st.title("✂️ ИИ-помощник")
+st.info("Я готов к работе! Добавьте изображение ниже.")
 
-try:
-    import PIL
-    st.success("✅ Pillow загружен")
-    
-    import onnxruntime
-    st.success("✅ ONNX Runtime загружен")
+# Поле загрузки
+uploaded_file = st.file_uploader("Добавить изображение", type=["jpg", "jpeg", "png"])
 
-    from rembg import remove
-    st.success("✅ Библиотека REMBG загружена успешно!")
-    
-    st.balloons() # Праздничные шарики, если всё ок!
+if uploaded_file:
+    # Отображаем то, что загрузили
+    from PIL import Image
+    image = Image.open(uploaded_file)
+    st.image(image, caption="Оригинал загружен", use_container_width=True)
 
-except Exception as e:
-    st.error("❌ Ошибка при импорте!")
-    st.exception(e) # Это выведет подробный технический отчет
-    st.write("Технические данные для Гугла:", sys.exc_info())
-
-st.divider()
-st.info("Если выше все галочки зеленые — можно возвращать основной код бота.")
+    if st.button("Очистить фон 🏁"):
+        with st.spinner("Магия ИИ в процессе... (в первый раз это может занять минуту)"):
+            try:
+                from rembg import remove
+                
+                # Сама обработка
+                output = remove(image)
+                
+                # Делаем фон белым
+                white_bg = Image.new("RGB", output.size, (255, 255, 255))
+                if output.mode == 'RGBA':
+                    white_bg.paste(output, mask=output.split())
+                else:
+                    white_bg.paste(output)
+                
+                st.success("Готово!")
+                st.image(white_bg, caption="Результат", use_container_width=True)
+                
+                # Кнопка скачивания
+                buf = io.BytesIO()
+                white_bg.save(buf, format="JPEG")
+                st.download_button(
+                    label="📥 Скачать результат",
+                    data=buf.getvalue(),
+                    file_name="no_bg.jpg",
+                    mime="image/jpeg"
+                )
+            except Exception as e:
+                st.error(f"Произошла ошибка: {e}")
