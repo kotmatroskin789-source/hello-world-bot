@@ -1,3 +1,4 @@
 streamlit
-rembg
+rembg[opencv]
 pillow
+pooch
